@@ -67,6 +67,37 @@ Consultas que buscam livros com mais de 100 páginas, ordenados de forma decresc
 
 ---
 
+## 💾 Dados de Teste (DML)
+
+Para validar as funcionalidades de busca, filtros e os gatilhos (triggers) de limite de leitura, utilize o script de inserção abaixo. Estes dados cobrem diferentes perfis de usuários e tipos de publicações.
+
+```sql
+-- 1. Inserindo Coleções (Usuários com diferentes limites)
+INSERT INTO colecao (nome_usuario, limite_leitura_simultanea) VALUES 
+('Lucas Tech', 4),
+('Mariana Historiadora', 2),
+('Roberto Designer', 3);
+
+-- 2. Inserindo Publicações (Livros 'L' e Revistas 'R')
+-- Associadas ao Lucas (ID 1), Mariana (ID 2) e Roberto (ID 3)
+INSERT INTO publicacao (id_colecao, tipo_item, titulo, autor, ano, genero, num_paginas, status_leitura, avaliacao) VALUES 
+(1, 'L', 'O Guia do Mochileiro das Galáxias', 'Douglas Adams', 1979, 'Ficção Científica', 208, 'LIDO', 10.0),
+(1, 'L', 'Arquitetura Limpa', 'Robert C. Martin', 2017, 'Tecnologia', 432, 'LENDO', 9.5),
+(1, 'R', 'Revista Wired', 'Condé Nast', 2024, 'Tecnologia', 90, 'NÃO LIDO', NULL),
+(2, 'L', 'A República', 'Platão', 1500, 'Filosofia', 320, 'LIDO', 8.5),
+(2, 'L', 'Guerra e Paz', 'Liev Tolstói', 1869, 'Romance Histórico', 1224, 'LENDO', 9.0),
+(3, 'R', 'Architectural Digest', 'Condé Nast', 2023, 'Arquitetura', 150, 'LIDO', 10.0),
+(3, 'L', 'Design for the Real World', 'Victor Papanek', 1971, 'Design', 384, 'NÃO LIDO', NULL);
+
+-- 3. Inserindo Anotações vinculadas às obras
+INSERT INTO anotacao (id_publicacao, texto, trecho_citado) VALUES 
+(1, 'Humor britânico excelente sobre o sentido da vida.', 'A resposta é 42.'),
+(2, 'Princípios fundamentais para código de qualidade.', 'O custo da bagunça é sempre maior.'),
+(4, 'Leitura densa, mas necessária para entender política.', 'A justiça consiste em cada um fazer o que lhe compete.'); 
+
+```
+---
+
 ## 📝 Script SQL (DDL)
 
 Caso deseje criar o banco manualmente fora do ORM, utilize o script abaixo:
@@ -85,3 +116,5 @@ CREATE TABLE publicacao (
     autor VARCHAR(255) NOT NULL,
     status_leitura VARCHAR(20) DEFAULT 'NÃO LIDO'
 );
+
+
