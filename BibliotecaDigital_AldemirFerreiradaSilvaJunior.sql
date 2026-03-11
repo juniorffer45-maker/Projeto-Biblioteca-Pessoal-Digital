@@ -146,4 +146,120 @@ SELECT
     p.editora AS "Publicado por"
 FROM publicacao AS p
 JOIN colecao AS c ON p.id_colecao = c.id_colecao
+
 WHERE p.avaliacao >= 9.0;
+
+-- ETAPA 5 - PROJETO FINAL
+
+-- ===============================
+-- VIEW
+-- ===============================
+
+-- Facilita a consulta diária, unindo os dados da coleção com os da publicaçao, filtrando apenas o que é relevante para o usuário
+
+CREATE VIEW v_resumo_leituras AS
+SELECT 
+    c.nome_usuario,
+    p.titulo,
+    p.autor,
+    p.tipo_item,
+    p.status_leitura,
+    p.avaliacao
+FROM colecao c
+JOIN publicacao p ON c.id_colecao = p.id_colecao
+ORDER BY c.nome_usuario, p.status_leitura;
+
+-- ===============================
+-- VIEW MATERIALIZADA
+-- ===============================
+
+-- Calcula a média de páginas lidas e o total de itens por usuário
+
+CREATE MATERIALIZED VIEW mv_estatisticas_colecao AS
+SELECT 
+    c.nome_usuario,
+    COUNT(p.id_publicacao) AS total_itens,
+    ROUND(AVG(p.avaliacao), 2) AS media_notas,
+    SUM(CASE WHEN p.status_leitura = 'LIDO' THEN p.num_paginas ELSE 0 END) AS total_paginas_lidas
+FROM colecao c
+LEFT JOIN publicacao p ON c.id_colecao = p.id_colecao
+GROUP BY c.nome_usuario;
+
+-- Para atualizar os dados: REFRESH MATERIALIZED VIEW mv_estatisticas_colecao;
+
+-- ===============================
+-- TRIGGERS
+-- ===============================
+
+-- Trigger BEFORE
+
+-- Este Trigger impede que o usuário adicione uma nova leitura como "LENDO" se ele já tiver atingido o limite_leitura_simultanea definido na tabela Colecao
+
+CREATE FUNCTION fn_checar_limite_leitura()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_limite INTEGER;
+    v_atual INTEGER;
+BEGIN
+    -- Busca o limite da coleção
+    SELECT limite_leitura_simultanea INTO v_limite FROM colecao WHERE id_colecao = NEW.id_colecao;
+    
+    -- Conta quantos itens já estão com status 'LENDO'
+    SELECT COUNT(*) INTO v_atual FROM publicacao 
+    WHERE id_colecao = NEW.id_colecao AND status_leitura = 'LENDO';
+
+    IF (NEW.status_leitura = 'LENDO' AND v_atual >= v_limite) THEN
+        RAISE EXCEPTION 'Limite de leitura simultânea atingido para esta coleção (%)!', v_limite;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_validar_limite_leitura
+BEFORE INSERT OR UPDATE OF status_leitura ON publicacao
+FOR EACH ROW EXECUTE FUNCTION fn_checar_limite_leitura();
+
+-- Trigger AFTER
+
+-- Sempre que uma anotação é criada, o sistema imprimi uma confirmação no console
+
+CREATE OR REPLACE FUNCTION fn_log_anotacao()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE NOTICE 'Nova anotação registrada para a publicação ID % em %', NEW.id_publicacao, NOW();
+    RETURN AFTER;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_depois_anotacao
+AFTER INSERT ON anotacao
+FOR EACH ROW EXECUTE FUNCTION fn_log_anotacao();
+
+
+-- ===============================
+-- PROCEDURE
+-- ===============================
+
+-- Automatiza o encerramento de uma leitura, atualizando o status, a data de término e a nota de uma só vez
+
+CREATE OR REPLACE PROCEDURE pr_finalizar_leitura(
+    p_id_publicacao INTEGER,
+    p_nota DECIMAL)
+    
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE publicacao
+    SET status_leitura = 'LIDO',
+        data_termino = CURRENT_DATE,
+        avaliacao = p_nota
+    WHERE id_publicacao = p_id_publicacao;
+
+    COMMIT;
+    RAISE NOTICE 'Publicação % finalizada com sucesso com nota %!', p_id_publicacao, p_nota;
+END;
+$$;
+
+-- Exemplo de uso:
+-- CALL pr_finalizar_leitura(1, 9.5);
