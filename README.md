@@ -117,4 +117,7 @@ CREATE TABLE publicacao (
     status_leitura VARCHAR(20) DEFAULT 'NÃO LIDO'
 );
 
+```
 
+#### Link do Mapeamento ORM e das Operações CRUD(Colab):
+https://colab.research.google.com/drive/1ocj1dECWSwVDzm6KXWXA9ay-qtthAkfd#scrollTo=DdHsvk6B7_ta
